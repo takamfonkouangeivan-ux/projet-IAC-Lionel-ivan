@@ -1,10 +1,19 @@
-clouds:
-  openstack:
-    auth:
-      auth_url: http://YOUR_OPENSTACK_URL
-      username: YOUR_USERNAME
-      password: YOUR_PASSWORD
-      project_name: YOUR_PROJECT
-    region_name: RegionOne
-    interface: public
-    identity_api_version: 3
+name: OpenStack Example
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  openstack_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up OpenStack clouds
+        run: |
+          echo "Auth URL: ${{ secrets.OS_AUTH_URL }}"
+          echo "Username: ${{ secrets.OS_USERNAME }}"
+          echo "Project: ${{ secrets.OS_PROJECT }}"
