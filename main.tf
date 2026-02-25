@@ -15,7 +15,7 @@ resource "openstack_compute_keypair_v2" "tp_key" {
   public_key = file("~/.ssh/id_rsa.pub")
 }
 resource "openstack_compute_instance_v2" "vm" {
-  name            = "VMLionel"
+  name            = "VMIsmael"
   image_name      = "Ubuntu 24.04"
   flavor_name     = "d2-2"
   key_pair = openstack_compute_instance_v2.tp_key.name
