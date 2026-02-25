@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Update packages
+        run: sudo apt update && sudo apt upgrade -y
+
+      - name: Install fail2ban
+        run: sudo apt install -y fail2ban
+
+      - name: Install Docker dependencies
+        run: sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+      - name: Add Docker GPG key
+        run: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+      - name: Add Docker repo
+        run: |
+          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          sudo apt update
+
+      - name: Install Docker
+        run: sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      - name: Add ubuntu user to docker group
+        run: sudo usermod -aG docker ubuntu
+
+      - name: Initialize Docker Swarm
+        run: docker swarm init || echo "Swarm already initialized"
