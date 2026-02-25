@@ -1,45 +1,39 @@
----
-- hosts: all
-  become: yes
-  tasks:
-    - name: Mise à jour des paquets
-      apt:
-        update_cache: yes
-        upgrade: dist
+name: Deploy
 
-    - name: Installation de fail2ban
-      apt:
-        name: fail2ban
-        state: present
+on:
+  push:
+    branches: [main]
 
-    - name: Installation des dépendances Docker
-      apt:
-        name: [apt-transport-https, ca-certificates, curl, software-properties-common]
-        state: present
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-    - name: Ajout de la clé GPG Docker
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Ajout du dépôt Docker
-      apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable
-        state: present
+      - name: Update packages
+        run: sudo apt update && sudo apt upgrade -y
 
-    - name: Installation de Docker Engine
-      apt:
-        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
-        state: present
+      - name: Install fail2ban
+        run: sudo apt install -y fail2ban
 
-    - name: Ajouter l'utilisateur ubuntu au groupe docker
-      user:
-        name: ubuntu
-        groups: docker
-        append: yes
+      - name: Install Docker dependencies
+        run: sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
 
-    - name: Initialiser le Swarm
-      shell: docker swarm init --advertise-addr {{ ansible_host }}
-      register: swarm_init
-      failed_when: false # Évite l'erreur si déjà initialisé
- 
+      - name: Add Docker GPG key
+        run: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+      - name: Add Docker repo
+        run: |
+          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          sudo apt update
+
+      - name: Install Docker
+        run: sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      - name: Add ubuntu user to docker group
+        run: sudo usermod -aG docker ubuntu
+
+      - name: Initialize Docker Swarm
+        run: docker swarm init || echo "Swarm already initialized"
