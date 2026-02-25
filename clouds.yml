@@ -1,4 +1,4 @@
-name: OpenStack Example
+name: OpenStack Workflow
 
 on:
   push:
@@ -6,13 +6,13 @@ on:
       - main
 
 jobs:
-  openstack_job:
+  deploy_openstack:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
-      
-      - name: Set up OpenStack clouds
+
+      - name: Print OpenStack auth info
         run: |
           echo "Auth URL: ${{ secrets.OS_AUTH_URL }}"
           echo "Username: ${{ secrets.OS_USERNAME }}"
