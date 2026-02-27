@@ -39,6 +39,7 @@ jobs:
         run: |
           cd tofu
           tofu init
+          echo 'test'
           tofu apply -auto-approve
           echo "VM_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
 
