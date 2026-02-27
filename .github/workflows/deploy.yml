@@ -34,10 +34,22 @@ jobs:
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
       # ----------------------------
-      # 4️⃣ Provisioning avec OpenTofu
+      # 4️⃣ Provisioning OpenTofu + backend S3 OVH
       # ----------------------------
       - name: OpenTofu Init & Apply
         working-directory: ./tofu
+        env:
+          # Credentials OVH S3
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: "true"
+
+          # OpenStack
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_PROJECT_NAME: ${{ secrets.OS_PROJECT_NAME }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
         run: |
           tofu init
           tofu apply -auto-approve \
@@ -49,7 +61,7 @@ jobs:
           echo "VM_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
 
       # ----------------------------
-      # 5️⃣ Installer Ansible et collections
+      # 5️⃣ Installer Ansible et collection Docker
       # ----------------------------
       - name: Install Ansible & Docker Collection
         run: |
