@@ -18,7 +18,6 @@ terraform {
   }
 }
 
-
 provider "openstack" {}
 
 resource "openstack_compute_keypair_v2" "tp_key" {
