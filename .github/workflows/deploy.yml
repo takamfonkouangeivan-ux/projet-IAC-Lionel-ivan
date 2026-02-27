@@ -1,66 +1,66 @@
-name: Deploy Infrastructure
+name: "CI/CD IaC Stack"
+
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_EC2_METADATA_DISABLED: "true"
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y netcat-openbsd python3-pip
-          pip3 install ansible
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Setup SSH
         run: |
-          curl -fsSL https://get.opentofu.org/install-opentofu.sh | sudo bash -s -- --install-method deb
-      - name: Setup SSH key
-        run: |
-          mkdir -p $HOME/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > $HOME/.ssh/id_rsa
-          chmod 600 $HOME/.ssh/id_rsa
-      - name: Setup OpenStack credentials
-        run: |
-          mkdir -p ~/.config/openstack
-          cat > ~/.config/openstack/clouds.yaml << YAML
-          clouds:
-            openstack:
-              auth:
-                auth_url: https://auth.cloud.ovh.net/v3
-                username: "${{ secrets.OS_USERNAME }}"
-                password: "${{ secrets.OS_PASSWORD }}"
-                project_name: "${{ secrets.OS_PROJECT_NAME }}"
-                project_id: "${{ secrets.OS_PROJECT_ID }}"
-                domain_name: "default"
-              region_name: "GRA9"
-              interface: public
-              identity_api_version: 3
-          YAML
-      - name: Tofu Init and Apply
-        timeout-minutes: 15
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/id_rsa.pub
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 644 ~/.ssh/id_rsa.pub
+          chmod 600 ~/.ssh/id_rsa
+          # On désactive la vérification d'hôte pour la CI
+          echo "StrictHostKeyChecking no" >> ~/.ssh/config
+
+      # --- ÉTAPE 1 : PROVISIONING ---
+      - name: OpenTofu Init & Apply
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_PROJECT_NAME }}
+          OS_IDENTITY_API_VERSION: ${{ secrets.IDENTITY_API_VERSION }}
         run: |
           cd tofu
-          tofu init -upgrade
+          tofu init
           tofu apply -auto-approve
-          echo "NODE_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
-      - name: Wait for SSH
-        run: |
-          echo "Attente du demarrage de la VM..."
-          until nc -zvw5 $NODE_IP 22; do
-            sleep 5
-          done
+          echo "VM_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
+
+      # --- ÉTAPE 2 : CONFIGURATION ---
+
+      - name: Install Ansible Docker Collection
+        run: ansible-galaxy collection install community.docker
+
       - name: Run Ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+          OS_USERNAME: ${{ secrets.OS_USERNAME }}
+          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
+          OS_TENANT_NAME: ${{ secrets.OS_PROJECT_NAME }}
+          OS_IDENTITY_API_VERSION: ${{ secrets.IDENTITY_API_VERSION }}
+          NODE_IP: ${{ env.VM_IP }}
         run: |
           cd ansible
-          ansible-playbook -i inventory.sh playbook.yml \
-            --private-key $HOME/.ssh/id_rsa \
-            -u ubuntu
+          # Utilisation de l'inventaire dynamique
+          ansible-playbook -i inventory.sh playbook.yml
