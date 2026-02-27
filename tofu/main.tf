@@ -18,18 +18,12 @@ terraform {
   }
 }
 
-provider "openstack" {
-  # Laisse vide → utilisera automatiquement :
-  # OS_AUTH_URL
-  # OS_USERNAME
-  # OS_PASSWORD
-  # OS_REGION_NAME
-  # OS_PROJECT_NAME
-}
+
+provider "openstack" {}
 
 resource "openstack_compute_keypair_v2" "tp_key" {
   name       = "tp_key"
-  public_key = file("~/.ssh/id_rsa.pub")
+  public_key = file("/home/runner/.ssh/id_rsa.pub")
 }
 
 resource "openstack_compute_instance_v2" "vm" {
