@@ -75,3 +75,15 @@ tofu destroy
 ├── outputs.tf
 ├── providers.tf
 └── README.md
+
+Installation de l’AWS CLI
+sudo apt update && sudo apt install awscli -y
+
+Vérifiez l’installation :
+
+aws --version
+Création d’un bucket OVH Object Storage
+
+Remplacez votre-nom-de-bucket par le nom que vous souhaitez donner au bucket et sbg par votre région OVH (par exemple gra pour Gravelines, rbx pour Roubaix, etc.) :
+
+aws s3 mb s3://votre-nom-de-bucket --endpoint-url https://s3.sbg.perf.cloud.ovh.net

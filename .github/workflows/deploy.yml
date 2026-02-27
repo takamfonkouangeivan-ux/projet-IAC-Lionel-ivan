@@ -1,0 +1,66 @@
+name: Deploy Infrastructure
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y netcat-openbsd python3-pip
+          pip3 install ansible
+      - name: Install OpenTofu
+        run: |
+          curl -fsSL https://get.opentofu.org/install-opentofu.sh | sudo bash -s -- --install-method deb
+      - name: Setup SSH key
+        run: |
+          mkdir -p $HOME/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > $HOME/.ssh/id_rsa
+          chmod 600 $HOME/.ssh/id_rsa
+      - name: Setup OpenStack credentials
+        run: |
+          mkdir -p ~/.config/openstack
+          cat > ~/.config/openstack/clouds.yaml << YAML
+          clouds:
+            openstack:
+              auth:
+                auth_url: https://auth.cloud.ovh.net/v3
+                username: "${{ secrets.OS_USERNAME }}"
+                password: "${{ secrets.OS_PASSWORD }}"
+                project_name: "${{ secrets.OS_PROJECT_NAME }}"
+                project_id: "${{ secrets.OS_PROJECT_ID }}"
+                domain_name: "default"
+              region_name: "GRA9"
+              interface: public
+              identity_api_version: 3
+          YAML
+      - name: Tofu Init and Apply
+        timeout-minutes: 15
+        run: |
+          cd tofu
+          tofu init -upgrade
+          tofu apply -auto-approve
+          echo "NODE_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
+      - name: Wait for SSH
+        run: |
+          echo "Attente du demarrage de la VM..."
+          until nc -zvw5 $NODE_IP 22; do
+            sleep 5
+          done
+      - name: Run Ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          cd ansible
+          ansible-playbook -i inventory.sh playbook.yml \
+            --private-key $HOME/.ssh/id_rsa \
+            -u ubuntu
