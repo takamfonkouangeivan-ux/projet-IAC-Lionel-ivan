@@ -64,3 +64,4 @@ jobs:
           cd ansible
           # Utilisation de l'inventaire dynamique
           ansible-playbook -i inventory.sh playbook.yml
+          
