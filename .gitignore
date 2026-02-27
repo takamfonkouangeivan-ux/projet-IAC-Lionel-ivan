@@ -1,6 +1,0 @@
-openrc.sh
-clouds.yml
-terraform.tfstate
-terraform.tfstate.backup
-.terraform
-.venv
