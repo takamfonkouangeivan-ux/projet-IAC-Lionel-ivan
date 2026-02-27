@@ -10,6 +10,18 @@ terraform {
 provider "openstack" {
   cloud = "ovh-sbg5"
 }
+terraform {
+  backend "s3" {
+    bucket                      = "BucketS3Ange"
+    key                         = "terraform.tfstate"
+    region                      = "gra" # ou sbg selon votre zone
+    endpoint                    = "https://s3.gra.perf.cloud.ovh.net"
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true # Requis pour la compatibilité S3 hors-AWS
+    skip_metadata_api_check     = true
+  }
+}
 resource "openstack_compute_keypair_v2" "tp_key" {
   name       = "tp_key"
   public_key = file("~/.ssh/id_rsa.pub")
