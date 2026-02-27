@@ -7,13 +7,23 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # ----------------------------
+      # 1️⃣ Checkout du code
+      # ----------------------------
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ----------------------------
+      # 2️⃣ Installer OpenTofu
+      # ----------------------------
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
 
+      # ----------------------------
+      # 3️⃣ Setup SSH
+      # ----------------------------
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -21,46 +31,40 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 644 ~/.ssh/id_rsa.pub
           chmod 600 ~/.ssh/id_rsa
-          # On désactive la vérification d'hôte pour la CI
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
-      # --- ÉTAPE 1 : PROVISIONING ---
+      # ----------------------------
+      # 4️⃣ Provisioning avec OpenTofu
+      # ----------------------------
       - name: OpenTofu Init & Apply
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-          OS_USERNAME: ${{ secrets.OS_USERNAME }}
-          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
-          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-          OS_TENANT_NAME: ${{ secrets.OS_PROJECT_NAME }}
-          OS_IDENTITY_API_VERSION: ${{ secrets.IDENTITY_API_VERSION }}
+        working-directory: ./tofu
         run: |
-          cd tofu
           tofu init
-          tofu apply -auto-approve
+          tofu apply -auto-approve \
+            -var="auth_url=${{ secrets.OS_AUTH_URL }}" \
+            -var="username=${{ secrets.OS_USERNAME }}" \
+            -var="password=${{ secrets.OS_PASSWORD }}" \
+            -var="project_name=${{ secrets.OS_PROJECT_NAME }}" \
+            -var="region=${{ secrets.OS_REGION_NAME }}"
           echo "VM_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
 
-      # --- ÉTAPE 2 : CONFIGURATION ---
+      # ----------------------------
+      # 5️⃣ Installer Ansible et collections
+      # ----------------------------
+      - name: Install Ansible & Docker Collection
+        run: |
+          sudo apt update
+          sudo apt install -y ansible
+          ansible-galaxy collection install community.docker
 
-      - name: Install Ansible Docker Collection
-        run: ansible-galaxy collection install community.docker
-
+      # ----------------------------
+      # 6️⃣ Exécuter le playbook Ansible
+      # ----------------------------
       - name: Run Ansible
+        working-directory: ./ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
-          OS_USERNAME: ${{ secrets.OS_USERNAME }}
-          OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
-          OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
-          OS_TENANT_ID: ${{ secrets.OS_TENANT_ID }}
-          OS_TENANT_NAME: ${{ secrets.OS_PROJECT_NAME }}
-          OS_IDENTITY_API_VERSION: ${{ secrets.IDENTITY_API_VERSION }}
           NODE_IP: ${{ env.VM_IP }}
         run: |
-          cd ansible
-          # Utilisation de l'inventaire dynamique
+          chmod +x inventory.sh
           ansible-playbook -i inventory.sh playbook.yml

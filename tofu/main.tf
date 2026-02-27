@@ -18,8 +18,18 @@ terraform {
   }
 }
 
-provider "openstack" {}
+# ✅ Provider configuré via variables
+provider "openstack" {
+  auth_url    = var.auth_url
+  user_name   = var.username
+  password    = var.password
+  tenant_name = var.project_name
+  region      = var.region
+}
 
+# -------------------------
+# Ressources
+# -------------------------
 resource "openstack_compute_keypair_v2" "tp_key" {
   name       = "tp_key"
   public_key = file("/home/runner/.ssh/id_rsa.pub")
