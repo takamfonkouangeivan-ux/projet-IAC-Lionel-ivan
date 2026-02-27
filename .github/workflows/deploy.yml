@@ -60,6 +60,7 @@ jobs:
             -var="region=${{ secrets.OS_REGION_NAME }}"
           echo "VM_IP=$(tofu output -raw instance_ip)" >> $GITHUB_ENV
 
+
       # ----------------------------
       # 5️⃣ Installer Ansible et collection Docker
       # ----------------------------
